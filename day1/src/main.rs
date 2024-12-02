@@ -1,20 +1,64 @@
+use core::str;
+
 const DATA: &'static str = include_str!("../bigboy.txt");
 const TEST: &'static str = include_str!("../test.txt");
 
 fn parse(input: &str) -> (Vec<u64>, Vec<u64>) {
     let (left, right): (Vec<u64>, Vec<u64>) = input
         .lines()
-        .map(|l| l.split_once("   ").unwrap())
-        .map(|(l, r)| (l.parse::<u64>().unwrap(), r.parse::<u64>().unwrap()))
+        .map(|l| l.split_once(" ").unwrap())
+        .map(|(l, r)| {
+            (
+                l.parse::<u64>().unwrap(),
+                r.trim_start().parse::<u64>().unwrap(),
+            )
+        })
         .unzip();
     (left, right)
 }
 
+const MUL_TABLE: [u64; 11] = [
+    10u64.pow(0),
+    10u64.pow(1),
+    10u64.pow(2),
+    10u64.pow(3),
+    10u64.pow(4),
+    10u64.pow(5),
+    10u64.pow(6),
+    10u64.pow(7),
+    10u64.pow(8),
+    10u64.pow(9),
+    10u64.pow(10),
+];
+fn parse_num(input: &[u8]) -> u64 {
+    input
+        .iter()
+        .rev()
+        .enumerate()
+        .fold(0u64, |res, (i, b)| res + (b - b'0') as u64 * MUL_TABLE[i])
+}
+
+fn parse_fast(input: &str) -> (Vec<u64>, Vec<u64>) {
+    let mut input = input.as_bytes();
+    let digits = input.iter().position(|&c| c == b' ').unwrap();
+    let whitespaces = input[digits..].iter().take_while(|&&c| c == b' ').count();
+    let mut a = vec![];
+    let mut b = vec![];
+    while !input.is_empty() {
+        let num = parse_num(&input[..digits]);
+        let num2 = parse_num(&input[whitespaces + digits..whitespaces + 2 * digits]);
+        a.push(num);
+        b.push(num2);
+        input = &input[whitespaces + 2 * digits..];
+        if !input.is_empty() && input[0] == b'\n' {
+            input = &input[1..];
+        }
+    }
+    (a, b)
+}
 // optimized for big boy input
 fn both(input: &str) {
-    let now = std::time::Instant::now();
-    let (mut left, mut right) = parse(input);
-    println!("parse: {:?}", now.elapsed());
+    let (mut left, mut right) = parse_fast(input);
     left.sort_unstable();
     right.sort_unstable();
     println!(
@@ -41,14 +85,13 @@ fn both(input: &str) {
     //     idx = idx + next_pos as usize;
     // }
     // println!("{}", sum);
-    let now = std::time::Instant::now();
+    // let now = std::time::Instant::now();
     println!(
         "{}",
         left.into_iter()
             .map(|v| v * map.get(v as usize - 1).copied().unwrap() as u64)
             .sum::<u64>()
     );
-    println!("{:?}", now.elapsed());
 }
 fn main() {
     both(TEST);

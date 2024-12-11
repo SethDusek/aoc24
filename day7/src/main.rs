@@ -30,30 +30,29 @@ fn ways(target: usize, arr: &[usize], cur_num: usize) -> usize {
         return 0;
     } else {
         // let num = arr.last().unwrap();
-        let mut num_ways = if let Some(next) = target.checked_sub(cur_num) {
-            ways(next, &arr[0..arr.len() - 1], *arr.last().unwrap())
-        } else {
-            0
-        };
-        if target % cur_num == 0 {
-            num_ways += ways(
-                target / cur_num,
-                &arr[0..arr.len() - 1],
-                *arr.last().unwrap(),
-            );
-        }
-        if arr.len() >= 1 {
-            num_ways += ways(
-                target,
-                &arr[0..arr.len() - 1],
-                dbg!(concat(*dbg!(arr.last().unwrap()), dbg!(cur_num))),
-            );
-        }
+        let num_ways = ways(target, &arr[1..], cur_num + arr[0])
+            + ways(target, &arr[1..], cur_num * arr[0])
+            + ways(target, &arr[1..], concat(cur_num, arr[0]));
+        // if target % cur_num == 0 {
+        //     num_ways += ways(
+        //         target / cur_num,
+        //         &arr[0..arr.len() - 1],
+        //         *arr.last().unwrap(),
+        //     );
+        // }
+        // if arr.len() >= 1 {
+        //     num_ways += ways(
+        //         target,
+        //         &arr[0..arr.len() - 1],
+        //         dbg!(concat(*dbg!(arr.last().unwrap()), dbg!(cur_num))),
+        //     );
+        // }
+        num_ways
+
         // if arr.len() > 1 {
         //     let pow = arr[arr.len() - 1].checked_ilog10().unwrap_or(0) + 1;
         //     arr[arr.len() - 2]
         // }
-        num_ways
     }
 }
 
@@ -61,9 +60,8 @@ fn part1(input: &str) {
     let parsed = parse(input);
     let mut sum = 0;
     for (target, nums) in parsed {
-        let num_ways = ways(target, &nums[0..nums.len() - 1], *nums.last().unwrap());
+        let num_ways = ways(target, &nums[1..], nums[0]);
         if num_ways > 0 {
-            println!("{target} {num_ways}");
             sum += target;
         }
     }
@@ -71,5 +69,5 @@ fn part1(input: &str) {
 }
 fn main() {
     part1(TEST);
-    // part1(DATA);
+    part1(DATA);
 }

@@ -57,6 +57,7 @@ fn part2(input: &str) {
 }
 fn solve(args: [[i64; 2]; 3]) -> Vec<i64> {
     Python::with_gil(|py| {
+        let now = std::time::Instant::now();
         let fun: Py<PyAny> = PyModule::from_code(
             py,
             &c_str!(include_str!("../solve.py")),
@@ -74,6 +75,7 @@ fn solve(args: [[i64; 2]; 3]) -> Vec<i64> {
             ],
         )
         .unwrap();
+        let now = std::time::Instant::now();
         let res: Vec<i64> = fun.call1(py, args).unwrap().extract(py).unwrap();
         res
     })

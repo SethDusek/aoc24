@@ -19,38 +19,39 @@ fn parse_grid(input: &str) -> HashMap<(i64, i64), char> {
 }
 fn both(input: &str) {
     let (pat, input) = input.split_once("\n\n").unwrap();
-    let pats = pat.split(", ").collect::<Vec<&str>>();
+    let pats = pat.split(", ");
 
     let mut trie = Trie::new();
-    pats.iter().for_each(|pat| trie.insert(pat));
+    pats.for_each(|pat| trie.insert(pat));
 
     // let matcher = AhoCorasick::builder().build(&pats).unwrap();
     let input = input.lines();
     let mut count = 0;
     let mut part2 = 0;
-    let mut dp = HashMap::new();
+    // let mut dp = HashMap::new();
+    let mut dp = vec![];
     for input in input {
-        let ways = ways(input, &trie, &pats, &mut dp);
+        dp.clear();
+        dp.resize(input.as_bytes().len(), u64::MAX);
+        let ways = ways(input, &trie, input.as_ptr() as usize, &mut dp);
         if ways > 0 {
             count += 1;
         }
         part2 += ways;
-        dp.clear();
     }
-    println!("{count}");
-    println!("{part2}");
+    println!("{count}\n{part2}");
 }
 
 #[derive(Clone)]
 struct Node {
-    children: Vec<Option<Node>>,
+    children: Box<[Option<Node>]>,
     terminal: bool,
 }
 
 impl Node {
     fn new() -> Node {
         Node {
-            children: vec![None; 26],
+            children: vec![None; 26].into(),
             terminal: false,
         }
     }
@@ -96,37 +97,30 @@ impl Trie {
     }
 }
 
-fn compute_hash<K: std::hash::Hash + ?Sized, S: BuildHasher>(hash_builder: &S, key: &K) -> u64 {
-    use core::hash::Hasher;
-    let mut state = hash_builder.build_hasher();
-    key.hash(&mut state);
-    state.finish()
-}
-
-fn ways<'a>(design: &'a str, matcher: &Trie, pats: &[&str], dp: &mut HashMap<usize, u64>) -> u64 {
-    let addr = design.as_ptr() as *const _ as usize;
-    let hash = compute_hash(dp.hasher(), &addr);
-    if let Some((_, v)) = dp.raw_entry().from_key_hashed_nocheck(hash, &addr) {
-        return *v;
+fn ways<'a>(design: &'a str, matcher: &Trie, base: usize, dp: &mut [u64]) -> u64 {
+    let addr = design.as_ptr() as *const _ as usize - base;
+    if dp[addr] != u64::MAX {
+        return dp[addr];
     }
-    if design.len() == 0 {
+    if design.as_bytes().len() == 0 {
         return 1;
     }
     let mut num_ways = 0;
     for matched in matcher.walk(&design) {
-        if matched == design.len() {
+        if matched == design.as_bytes().len() {
             num_ways += 1;
             continue;
         }
-        num_ways += ways(&design[matched..], matcher, pats, dp);
+        num_ways += ways(&design[matched..], matcher, base, dp);
     }
-    dp.raw_entry_mut()
-        .from_key_hashed_nocheck(hash, &addr)
-        .or_insert(addr, num_ways);
+    dp[addr] = num_ways;
+
     return num_ways;
 }
 
 fn main() {
+    let now = std::time::Instant::now();
     both(TEST);
     both(INPUT);
+    println!("{:?}", now.elapsed());
 }

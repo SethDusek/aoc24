@@ -55,7 +55,6 @@ fn dfs(
     visited: &mut HashSet<(i64, i64)>,
 ) -> (u64, u64) {
     let cur_char = grid[&cur_pos];
-    println!("{cur_char}");
     let adj = [(0, 2), (2, 0), (0, -2), (-2, 0)];
     let mut stack = vec![cur_pos];
     let mut visited_count = 0;
@@ -83,51 +82,41 @@ fn dfs(
         for adj in adj {
             let pos = (vert.0 + adj.0, vert.1 + adj.1);
             if grid.get(&(pos.0 + adj.0, pos.1 + adj.1)) != Some(&cur_char) {
-                unique.insert(pos);
+                unique.insert((pos, adj));
             }
         }
     }
-    println!("unique {} {unique:?}", unique.len());
-    println!("{vertices:?}");
-    println!("price = {}", unique.len() as u64 * visited_count);
-    println!(
-        "part2 = {}",
-        visited_count * horizontal(&grid, &unique, cur_char)
-    );
     (
         unique.len() as u64 * visited_count,
         visited_count * horizontal(&grid, &unique, cur_char),
     )
 }
 
-fn horizontal(grid: &HashMap<(i64, i64), char>, set: &BTreeSet<(i64, i64)>, c: char) -> u64 {
+fn horizontal(
+    grid: &HashMap<(i64, i64), char>,
+    set: &BTreeSet<((i64, i64), (i64, i64))>,
+    c: char,
+) -> u64 {
     let mut unique = set.iter().copied().collect::<Vec<_>>();
     let mut i = 0;
     let mut cur: Option<usize> = None;
     let mut horizontal = 0;
     while i < unique.len() {
-        if grid.get(&(unique[i].0 + 1, unique[i].1)) != Some(&c)
-            && grid.get(&(unique[i].0 - 1, unique[i].1)) != Some(&c)
-        {
+        if unique[i].1 != (-1, 0) && unique[i].1 != (1, 0) {
             i += 1;
             continue;
         }
+        // if grid.get(&(unique[i].0 + 1, unique[i].1)) != Some(&c)
+        //     && grid.get(&(unique[i].0 - 1, unique[i].1)) != Some(&c)
+        // {
+        //     i += 1;
+        //     continue;
+        // }
         if let Some(seg) = cur {
-            if grid.get(&(unique[seg].0 + 1, unique[seg].1))
-                != grid.get(&(unique[i].0 + 1, unique[i].1))
+            if unique[i].1 == unique[seg].1
+                && unique[i].0 .0 == unique[seg].0 .0
+                && unique[i].0 .1 - unique[seg].0 .1 == 2
             {
-                cur = Some(i);
-                horizontal += 1;
-                continue;
-            }
-            if grid.get(&(unique[seg].0 - 1, unique[seg].1))
-                != grid.get(&(unique[i].0 - 1, unique[i].1))
-            {
-                cur = Some(i);
-                horizontal += 1;
-                continue;
-            }
-            if unique[i].0 == unique[seg].0 && unique[i].1 - unique[seg].1 == 2 {
                 cur = Some(i);
             } else {
                 cur = Some(i);
@@ -139,43 +128,13 @@ fn horizontal(grid: &HashMap<(i64, i64), char>, set: &BTreeSet<(i64, i64)>, c: c
         }
         i += 1;
     }
-    println!("horizontal sides: {horizontal}");
-    unique.sort_by_key(|(x, y)| *x);
-    unique.sort_by_key(|(x, y)| *y);
-    println!("unique: {unique:?}");
-    let mut i = 0;
-    let mut cur: Option<usize> = None;
-    let mut vertical = 0;
-    while i < unique.len() {
-        if grid.get(&(unique[i].0, unique[i].1 + 1)) != Some(&c)
-            && grid.get(&(unique[i].0, unique[i].1 - 1)) != Some(&c)
-        {
-            i += 1;
-            continue;
-        }
-        if let Some(seg) = cur {
-            if unique[i].1 == unique[seg].1 && unique[i].0 - unique[seg].0 == 2 {
-                cur = Some(i);
-            } else {
-                cur = Some(i);
-                vertical += 1;
-            }
-        } else {
-            cur = Some(i);
-            vertical += 1;
-        }
-        i += 1;
-    }
-    println!("vertical sides: {vertical}");
-
-    println!("sides = {}", horizontal + vertical);
-    vertical * 2 //+ vertical
+    horizontal * 2
 }
 
 fn part2(input: &str) {}
 fn main() {
     part1(TEST);
-    // part1(INPUT);
+    part1(INPUT);
     part2(TEST);
     part2(INPUT);
 }

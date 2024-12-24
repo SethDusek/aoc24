@@ -20,8 +20,7 @@ fn parse_grid(input: &str) -> HashMap<(i64, i64), char> {
 #[derive(PartialOrd, PartialEq, Clone, Hash, Eq, Debug)]
 struct Node {
     pos: (i64, i64),
-    cheat_positions: ArrayVec<(i64, i64), 20>,
-    steps: usize,
+    steps: i64,
 }
 
 fn unique_pos(positions: &[(i64, i64)]) -> ArrayVec<(i64, i64), 2> {
@@ -34,82 +33,33 @@ fn unique_pos(positions: &[(i64, i64)]) -> ArrayVec<(i64, i64), 2> {
     }
     v
 }
-fn bfs(
-    grid: &HashMap<(i64, i64), char>,
-    start: (i64, i64),
-    end: (i64, i64),
-    cheats_allowed: bool,
-    without_cheats: Option<usize>,
-    atleast: usize,
-) -> Option<usize> {
+fn bfs(grid: &HashMap<(i64, i64), char>, start: (i64, i64), end: (i64, i64)) -> Option<i64> {
     let mut queue = VecDeque::new();
     let mut visited = HashSet::new();
     queue.push_back(Node {
         pos: start,
-        cheat_positions: ArrayVec::new(),
         steps: 0,
     });
-    let mut unique = HashSet::new();
     while let Some(cur) = queue.pop_front() {
         if cur.pos == end {
-            if let Some(without) = without_cheats {
-                if dbg!(cur.steps.abs_diff(without)) >= atleast {
-                    unique.insert(cur.cheat_positions.clone());
-                } else {
-                    break;
-                }
-            } else {
-                return Some(cur.steps);
-            }
-            println!("Goal at {} steps", cur.steps);
-            continue;
+            return Some(cur.steps);
         }
-        if visited.contains(&(cur.pos, unique_pos(&cur.cheat_positions)))
-            || cur.cheat_positions.len() == cur.cheat_positions.capacity()
-                && grid.get(&cur.pos) == Some(&'#')
-        {
-            continue;
-        }
-        visited.insert((cur.pos, unique_pos(&cur.cheat_positions)));
+        visited.insert(cur.pos);
         let adj = [(0, -1), (0, 1), (1, 0), (-1, 0)];
         for adj in adj {
             let next_pos = (cur.pos.0 + adj.0, cur.pos.1 + adj.1);
-            let mut needs_cheat = false;
-            if grid.get(&next_pos).is_none() {
-                continue;
-            }
-            if grid.get(&next_pos) == Some(&'#') {
-                if !cheats_allowed || cur.cheat_positions.len() >= cur.cheat_positions.capacity() {
-                    continue;
-                }
-                needs_cheat = true;
-            }
-
-            let cheat_positions: ArrayVec<_, 20> = if cheats_allowed
-                && (needs_cheat
-                    || cur.cheat_positions.len() > 0
-                        && cur.cheat_positions.len() < cur.cheat_positions.capacity())
+            if visited.contains(&next_pos)
+                || grid.get(&next_pos).is_none()
+                || grid.get(&next_pos) == Some(&'#')
             {
-                cur.cheat_positions
-                    .iter()
-                    .copied()
-                    .chain(std::iter::once(cur.pos))
-                    .take(cur.cheat_positions.capacity())
-                    .collect()
-            } else {
-                cur.cheat_positions.clone()
-            };
-            if visited.contains(&(next_pos, unique_pos(&cheat_positions))) {
                 continue;
             }
             queue.push_back(Node {
                 pos: next_pos,
-                cheat_positions,
                 steps: cur.steps + 1,
-            });
+            })
         }
     }
-    println!("atleast: {}", unique.len());
     None
 }
 
@@ -117,8 +67,47 @@ fn part1(input: &str) {
     let parsed = parse_grid(input);
     let start = *parsed.iter().find(|(_, v)| **v == 'S').unwrap().0;
     let end = *parsed.iter().find(|(_, v)| **v == 'E').unwrap().0;
-    let without_cheats = bfs(&parsed, start, end, false, None, 0).unwrap();
-    bfs(&parsed, start, end, true, Some(without_cheats), 100);
+
+    let mut from_start = HashMap::new();
+    let mut from_end = HashMap::new();
+    for (k, v) in &parsed {
+        if *v == '#' {
+            continue;
+        }
+        if let Some(dist) = bfs(&parsed, start, *k) {
+            from_start.insert(*k, dist);
+        }
+        if let Some(dist) = bfs(&parsed, end, *k) {
+            from_end.insert(*k, dist);
+        }
+    }
+    let max_jump = 20i64;
+    let atleast = 100;
+    let mut count = 0;
+    for (k, v) in &parsed {
+        if !from_start.contains_key(k) || !from_end.contains_key(&k) {
+            continue;
+        }
+
+        for y in (-max_jump)..=max_jump {
+            for x in -(max_jump - y)..=max_jump - y {
+                if x.abs() + y.abs() > max_jump {
+                    continue;
+                }
+                if !from_end.contains_key(&(k.0 + y, k.1 + x)) {
+                    continue;
+                }
+                let dist = from_start[&k] + x.abs() + y.abs() + from_end[&(k.0 + y, k.1 + x)];
+                if dist < from_start[&k] + from_end[&k]
+                    && (from_start[&k] + from_end[&k]) - dist >= atleast
+                {
+                    count += 1;
+                }
+            }
+        }
+    }
+    println!("{}", from_start[&end]);
+    println!("{count}");
 }
 fn main() {
     part1(TEST);

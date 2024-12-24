@@ -127,6 +127,93 @@ fn find_char(grid: &Grid, c: char) -> (i64, i64) {
     *grid.iter().find(|(_, v)| c == **v).unwrap().0
 }
 
+// not guaranteed to be valid
+fn path(start_pos: (i64, i64), end_pos: (i64, i64)) -> Vec<char> {
+    let y_diff = end_pos.0 - start_pos.0;
+    let x_diff = end_pos.1 - start_pos.1;
+    let x_char = match x_diff.signum() {
+        0 => None,
+        1 => Some('>'),
+        -1 => Some('<'),
+        _ => unreachable!(),
+    };
+    let x_count = x_diff.abs();
+    let y_char = match y_diff.signum() {
+        0 => None,
+        1 => Some('v'),
+        -1 => Some('^'),
+        _ => unreachable!(),
+    };
+    let y_count = y_diff.abs();
+    x_char
+        .into_iter()
+        .flat_map(|c| std::iter::repeat_n(c, x_count as usize))
+        .chain(
+            y_char
+                .into_iter()
+                .flat_map(|c| std::iter::repeat_n(c, y_count as usize)),
+        )
+        .collect()
+}
+
+fn char_to_dir(c: char) -> (i64, i64) {
+    match c {
+        '>' => (0, 1),
+        '<' => (0, -1),
+        'v' => (1, 0),
+        '^' => (-1, 0),
+        _ => unreachable!(),
+    }
+}
+
+fn valid_path(grid: &Grid, start_pos: (i64, i64), path: &[char]) -> bool {
+    path.iter()
+        .copied()
+        .scan(start_pos, |pos, path| {
+            *pos = (pos.0 + char_to_dir(path).0, pos.1 + char_to_dir(path).1);
+            Some(*pos)
+        })
+        .all(|pos| grid.contains_key(&pos))
+}
+
+fn shortest(
+    numpad: &Grid,
+    directional: &Grid,
+    start: char,
+    end: char,
+    depth: usize,
+    max_depth: usize,
+    dp: &mut HashMap<(char, char, usize, usize), usize>,
+) -> usize {
+    if let Some(res) = dp.get(&(start, end, depth, max_depth)) {
+        return *res;
+    }
+    let grid = if depth == 0 { numpad } else { directional };
+    let path = path(find_char(grid, start), find_char(grid, end));
+    // println!("{path:?}");
+    if depth == max_depth {
+        return path.len() + 1; // +A
+    }
+    let path_len = path.len();
+    let mut min_len = usize::MAX;
+    for mut perm in path
+        .into_iter()
+        .permutations(path_len)
+        .filter(|path| valid_path(grid, find_char(grid, start), &path))
+    {
+        perm.insert(0, 'A');
+        perm.push('A');
+        // println!("perm: {perm:?}");
+        let mut sum = 0;
+        for (a, b) in perm.into_iter().tuple_windows() {
+            sum += shortest(numpad, directional, a, b, depth + 1, max_depth, dp);
+        }
+        min_len = min_len.min(sum);
+    }
+    dp.insert((start, end, depth, max_depth), min_len);
+    min_len
+}
+
 fn part1(input: &str) {
     let mut directional = HashMap::new();
     directional.insert((0, 1), '^');
@@ -149,52 +236,18 @@ fn part1(input: &str) {
     }
     let mut sum = 0;
     for code in input.lines() {
-        let mut robot_path = String::new();
-        let mut prev_dir = (0, 0);
-        for (start, goal) in
-            std::iter::once(('A', code.chars().next().unwrap())).chain(code.chars().tuple_windows())
-        {
-            let start_pos = find_char(&numpad, start);
-            let goal_pos = find_char(&numpad, goal);
-            let (dir, numpad_path) =
-                bfs(&numpad, start_pos, goal_pos, &directional, prev_dir).unwrap();
-            prev_dir = dir;
-            robot_path.extend(numpad_path.iter().copied());
+        let mut len = 0;
+        let mut s = String::from("A");
+        s.push_str(code);
+        let mut dp = HashMap::new();
+        for (a, b) in s.chars().tuple_windows() {
+            len += shortest(&numpad, &directional, a, b, 0, 25, &mut dp);
         }
-        println!("{code}");
-        println!("{} {robot_path}", robot_path.len());
-        let mut robot_robot_path = String::new();
-        let mut prev_dir = (0, 0);
-        for (start, goal) in once(('A', robot_path.chars().next().unwrap()))
-            .chain(robot_path.chars().tuple_windows())
-        {
-            let start_pos = find_char(&directional, start);
-            let goal_pos = find_char(&directional, goal);
-            let (dir, bfs_res) =
-                bfs(&directional, start_pos, goal_pos, &directional, prev_dir).unwrap();
-            robot_robot_path.extend(bfs_res);
-            prev_dir = dir;
-        }
-        let mut user_path = String::new();
-        let mut prev_dir = (0, 0);
-        for (start, goal) in once(('A', robot_robot_path.chars().next().unwrap()))
-            .chain(robot_robot_path.chars().tuple_windows())
-        {
-            let start_pos = find_char(&directional, start);
-            let goal_pos = find_char(&directional, goal);
-            let (dir, bfs_res) =
-                bfs(&directional, start_pos, goal_pos, &directional, prev_dir).unwrap();
-            user_path.extend(bfs_res);
-            prev_dir = dir;
-        }
-
-        println!("{} {robot_robot_path}", robot_robot_path.len());
-        println!("{} {user_path}", user_path.len());
-        sum += user_path.len() * usize::from_str_radix(&code[0..3], 10).unwrap();
+        sum += code[0..3].parse::<u64>().unwrap() * len as u64;
     }
     println!("{sum}");
 }
 fn main() {
     part1(TEST);
-    // part1(INPUT);
+    part1(INPUT);
 }
